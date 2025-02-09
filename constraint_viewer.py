@@ -1,12 +1,8 @@
-import os
-import subprocess
 import sys
 
-from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from PySide2.QtCore import Qt
 from shiboken2 import wrapInstance
 
 from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
@@ -61,39 +57,59 @@ class constraintViewer(MayaQWidgetDockableMixin, QtWidgets.QDialog):
         self.create_connections()
         
         if cmds.ls(selection=True):
-            self.search_bar_fld.setText(cmds.ls(selection=True)[0])
+            self.search_bar_field.setText(cmds.ls(selection=True)[0])
         self.refresh_filtered_item_tree()
 
     def create_widgets(self):
         self.search_filters_dropdown = QtWidgets.QToolBox()
-        self.search_bar_fld = QtWidgets.QLineEdit()
-        self.search_bar_fld.setMaximumHeight(25)
+        self.search_bar_field = QtWidgets.QLineEdit()
+        self.search_bar_field.setMaximumHeight(25)
+        self.search_bar_field.setPlaceholderText('Search')
+        self.get_selection_button = QtWidgets.QPushButton()
+        self.get_selection_button.setIcon(QtGui.QIcon(':searchEngine.png'))
+        self.get_selection_button.setToolTip('Filter based on selection')
         self.constraint_type_comboBox = QtWidgets.QComboBox()
         self.constraint_type_comboBox.addItem('All')
         self.constraint_type_comboBox.addItems(self.constraints.keys())
+        self.refresh_button = QtWidgets.QPushButton()
+        self.refresh_button.setMaximumWidth(30)
+        self.refresh_button.setIcon(QtGui.QIcon(":refresh.png"))
+        self.refresh_button.setToolTip('Refreshes the list')
         self.filtered_item_tree = QtWidgets.QTreeWidget()
         self.filtered_item_tree.setHeaderHidden(True)
         self.constraint_options_button = QtWidgets.QPushButton('Options')
         self.constraint_options_button.setEnabled(False)
-        tool_tip = 'Opens the options window for the constraint currently selected in the drop down box.'
-        self.constraint_options_button.setToolTip(tool_tip)
+        options_tool_tip = 'Opens the options window for the constraint currently selected in the drop down box.'
+        self.constraint_options_button.setToolTip(options_tool_tip)
         
     def create_layout(self):
-        search_layout = QtWidgets.QVBoxLayout()
-        search_layout.addWidget(self.search_bar_fld)
-        search_layout.addWidget(self.constraint_type_comboBox)
-        search_layout.addWidget(self.filtered_item_tree)
-        search_layout.addWidget(self.constraint_options_button)
+        search_layout = QtWidgets.QHBoxLayout()
+        search_layout.addWidget(self.search_bar_field)
+        search_layout.addWidget(self.get_selection_button)
         
-        main_layout = QtWidgets.QHBoxLayout(self)
+        combo_refresh_layout = QtWidgets.QHBoxLayout()
+        combo_refresh_layout.addWidget(self.constraint_type_comboBox)
+        combo_refresh_layout.addWidget(self.refresh_button)
+        
+        main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.addLayout(search_layout)
+        main_layout.addLayout(combo_refresh_layout)
+        main_layout.addWidget(self.filtered_item_tree)
+        main_layout.addWidget(self.constraint_options_button)
 
     def create_connections(self):
+        self.get_selection_button.clicked.connect(self.populate_text_from_selection)
         self.constraint_options_button.clicked.connect(self.open_constraint_option_box)
         self.constraint_type_comboBox.currentTextChanged.connect(self.toggle_options_button)
         self.constraint_type_comboBox.currentTextChanged.connect(self.refresh_filtered_item_tree)
+        self.refresh_button.clicked.connect(self.refresh_filtered_item_tree)
         self.filtered_item_tree.doubleClicked.connect(self.select_tree_item_in_outliner)
-        self.search_bar_fld.textChanged.connect(self.refresh_filtered_item_tree)
+        self.search_bar_field.textChanged.connect(self.refresh_filtered_item_tree)
+    
+    def populate_text_from_selection(self):
+        selection = cmds.ls(selection=True)
+        if selection:
+            self.search_bar_field.setText(selection[0])
     
     def toggle_options_button(self):
         self.constraint_options_button.setEnabled(True)
@@ -120,7 +136,7 @@ class constraintViewer(MayaQWidgetDockableMixin, QtWidgets.QDialog):
         else:
             objs = cmds.ls(type=self.constraints[constraint_type]) or []
         
-        search_bar_text = self.search_bar_fld.text()
+        search_bar_text = self.search_bar_field.text()
         for constraint in objs:
             parents = list(set(cmds.listConnections(f'{constraint}.target')))
             targets = list(set(cmds.listConnections(constraint, source=False, destination=True)))
@@ -153,9 +169,8 @@ class constraintViewer(MayaQWidgetDockableMixin, QtWidgets.QDialog):
 
 
 if __name__ == "__main__":
-
     try:
-        constraint_viewer_window.close() # pylint: disable=E0601
+        constraint_viewer_window.close()
         constraint_viewer_window.deleteLater()
     except:
         pass
